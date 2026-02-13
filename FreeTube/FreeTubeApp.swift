@@ -12,7 +12,13 @@ import SwiftData
 struct FreeTubeApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            AppSettings.self,
+            VideoRecord.self,
+            ChannelSubscription.self,
+            Playlist.self,
+            PlaylistItem.self,
+            WatchHistoryEntry.self,
+            DownloadJob.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
