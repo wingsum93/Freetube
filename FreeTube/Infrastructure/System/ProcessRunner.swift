@@ -12,46 +12,48 @@ protocol ProcessRunning {
 
 final class ProcessRunner: ProcessRunning {
     func run(executablePath: String, arguments: [String], timeout: TimeInterval? = nil) async throws -> ProcessOutput {
-        try await Task.detached(priority: .userInitiated) {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: executablePath)
-            process.arguments = arguments
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = arguments
 
-            let stdoutPipe = Pipe()
-            let stderrPipe = Pipe()
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
 
-            try process.run()
+        try process.run()
 
-            if let timeout {
-                let deadline = Date().addingTimeInterval(timeout)
-                while process.isRunning && Date() < deadline {
-                    try await Task.sleep(for: .milliseconds(100))
-                }
-                if process.isRunning {
-                    process.terminate()
-                    throw RuntimeError.commandFailed(
-                        command: ([executablePath] + arguments).joined(separator: " "),
-                        status: -1,
-                        error: "Command timed out"
-                    )
-                }
+        let command = ([executablePath] + arguments).joined(separator: " ")
+        let startTime = Date()
+
+        while process.isRunning {
+            if Task.isCancelled {
+                process.terminate()
+                throw CancellationError()
             }
 
-            process.waitUntilExit()
+            if let timeout, Date().timeIntervalSince(startTime) > timeout {
+                process.terminate()
+                throw RuntimeError.commandFailed(
+                    command: command,
+                    status: -1,
+                    error: "Command timed out"
+                )
+            }
 
-            let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+            try await Task.sleep(for: .milliseconds(100))
+        }
 
-            let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
-            let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
 
-            return ProcessOutput(
-                terminationStatus: process.terminationStatus,
-                stdout: stdout,
-                stderr: stderr
-            )
-        }.value
+        let stdout = String(data: stdoutData, encoding: .utf8) ?? ""
+        let stderr = String(data: stderrData, encoding: .utf8) ?? ""
+
+        return ProcessOutput(
+            terminationStatus: process.terminationStatus,
+            stdout: stdout,
+            stderr: stderr
+        )
     }
 }

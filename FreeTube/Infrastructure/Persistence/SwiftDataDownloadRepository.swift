@@ -12,6 +12,10 @@ final class SwiftDataDownloadRepository: DownloadRepository {
         let jobID = job.id
         let descriptor = FetchDescriptor<DownloadJob>(predicate: #Predicate { $0.id == jobID })
         if let existing = try modelContext.fetch(descriptor).first {
+            existing.sourceURLString = job.sourceURLString
+            existing.title = job.title
+            existing.preset = job.preset
+            existing.outputPath = job.outputPath
             existing.status = job.status
             existing.progress = job.progress
             existing.errorMessage = job.errorMessage
@@ -44,6 +48,27 @@ final class SwiftDataDownloadRepository: DownloadRepository {
         }
         job.errorMessage = errorMessage
         job.updatedAt = .now
+        try modelContext.save()
+    }
+
+    func updateOutputPath(jobID: UUID, outputPath: String) throws {
+        let descriptor = FetchDescriptor<DownloadJob>(predicate: #Predicate { $0.id == jobID })
+        guard let job = try modelContext.fetch(descriptor).first else {
+            return
+        }
+
+        job.outputPath = outputPath
+        job.updatedAt = .now
+        try modelContext.save()
+    }
+
+    func delete(jobID: UUID) throws {
+        let descriptor = FetchDescriptor<DownloadJob>(predicate: #Predicate { $0.id == jobID })
+        guard let job = try modelContext.fetch(descriptor).first else {
+            return
+        }
+
+        modelContext.delete(job)
         try modelContext.save()
     }
 }

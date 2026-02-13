@@ -1,7 +1,7 @@
 import Foundation
 
 struct EnqueueDownloadUseCase {
-    let downloadManager: DownloadManager
+    let downloadManager: DownloadManaging
 
     @discardableResult
     func execute(request: DownloadRequest) async throws -> UUID {

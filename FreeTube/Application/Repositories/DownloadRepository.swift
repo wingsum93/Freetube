@@ -5,4 +5,6 @@ protocol DownloadRepository {
     func fetch(jobID: UUID) throws -> DownloadJob?
     func fetchAll() throws -> [DownloadJob]
     func updateStatus(jobID: UUID, status: DownloadStatus, progress: Double?, errorMessage: String?) throws
+    func updateOutputPath(jobID: UUID, outputPath: String) throws
+    func delete(jobID: UUID) throws
 }

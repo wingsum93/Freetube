@@ -10,7 +10,25 @@ import SwiftData
 
 @main
 struct FreeTubeApp: App {
-    var sharedModelContainer: ModelContainer = {
+    private let sharedModelContainer: ModelContainer
+    @StateObject private var appContainer: AppContainer
+
+    init() {
+        let modelContainer = Self.makeModelContainer()
+        self.sharedModelContainer = modelContainer
+        _appContainer = StateObject(wrappedValue: AppContainer(modelContainer: modelContainer))
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(appContainer)
+                .environmentObject(appContainer.playbackCoordinator)
+        }
+        .modelContainer(sharedModelContainer)
+    }
+
+    private static func makeModelContainer() -> ModelContainer {
         let schema = Schema([
             AppSettings.self,
             VideoRecord.self,
@@ -27,12 +45,5 @@ struct FreeTubeApp: App {
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
-        .modelContainer(sharedModelContainer)
     }
 }

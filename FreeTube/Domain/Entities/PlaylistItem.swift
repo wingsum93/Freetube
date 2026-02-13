@@ -6,6 +6,8 @@ final class PlaylistItem {
     @Attribute(.unique) var id: UUID
     var playlistID: UUID
     var videoID: String
+    var sourceURLString: String
+    var downloadJobID: UUID?
     var title: String
     var position: Int
     var addedAt: Date
@@ -14,6 +16,8 @@ final class PlaylistItem {
         id: UUID = UUID(),
         playlistID: UUID,
         videoID: String,
+        sourceURLString: String,
+        downloadJobID: UUID? = nil,
         title: String,
         position: Int,
         addedAt: Date = .now
@@ -21,6 +25,8 @@ final class PlaylistItem {
         self.id = id
         self.playlistID = playlistID
         self.videoID = videoID
+        self.sourceURLString = sourceURLString
+        self.downloadJobID = downloadJobID
         self.title = title
         self.position = position
         self.addedAt = addedAt

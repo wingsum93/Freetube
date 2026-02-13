@@ -45,12 +45,27 @@ final class SwiftDataPlaylistRepository: PlaylistRepository {
         try modelContext.save()
     }
 
+    func fetchItem(id: UUID) throws -> PlaylistItem? {
+        let descriptor = FetchDescriptor<PlaylistItem>(predicate: #Predicate { $0.id == id })
+        return try modelContext.fetch(descriptor).first
+    }
+
     func fetchItems(playlistID: UUID) throws -> [PlaylistItem] {
         let descriptor = FetchDescriptor<PlaylistItem>(
             predicate: #Predicate { $0.playlistID == playlistID },
             sortBy: [SortDescriptor(\PlaylistItem.position)]
         )
         return try modelContext.fetch(descriptor)
+    }
+
+    func updateItemDownloadJobID(itemID: UUID, downloadJobID: UUID?) throws {
+        let descriptor = FetchDescriptor<PlaylistItem>(predicate: #Predicate { $0.id == itemID })
+        guard let item = try modelContext.fetch(descriptor).first else {
+            return
+        }
+
+        item.downloadJobID = downloadJobID
+        try modelContext.save()
     }
 
     func removeItem(id: UUID) throws {
