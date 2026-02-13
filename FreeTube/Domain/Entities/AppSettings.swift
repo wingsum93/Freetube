@@ -3,6 +3,10 @@ import SwiftData
 
 @Model
 final class AppSettings {
+    static let defaultKey = "default"
+    static let defaultPythonExecutablePath = "/usr/bin/python3"
+    static let defaultYTDLPExecutablePath = "/usr/local/bin/yt-dlp"
+
     @Attribute(.unique) var key: String
     var pythonExecutablePath: String
     var ytdlpExecutablePath: String
@@ -11,9 +15,9 @@ final class AppSettings {
     var updatedAt: Date
 
     init(
-        key: String = "default",
-        pythonExecutablePath: String = "/usr/bin/python3",
-        ytdlpExecutablePath: String = "/usr/local/bin/yt-dlp",
+        key: String = AppSettings.defaultKey,
+        pythonExecutablePath: String = AppSettings.defaultPythonExecutablePath,
+        ytdlpExecutablePath: String = AppSettings.defaultYTDLPExecutablePath,
         downloadDirectoryPath: String,
         createdAt: Date = .now,
         updatedAt: Date = .now

@@ -12,8 +12,8 @@ final class AppContainer: ObservableObject {
     let videoRepository: VideoRepository
     let downloadRepository: DownloadRepository
 
-    let ytDLPClient: YTDLPClient
-    let downloadManager: DownloadManager
+    private(set) var ytDLPClient: YTDLPClient
+    private(set) var downloadManager: DownloadManager
     let playbackCoordinator: PlaylistPlaybackCoordinator
 
     init(modelContainer: ModelContainer) {
@@ -78,13 +78,73 @@ final class AppContainer: ObservableObject {
         try await useCase.execute(itemID: itemID)
     }
 
+    func currentExecutablePaths() throws -> (pythonExecutablePath: String, ytdlpExecutablePath: String) {
+        let settings = try fetchDefaultSettings()
+        return (settings.pythonExecutablePath, settings.ytdlpExecutablePath)
+    }
+
+    func updateExecutablePaths(pythonExecutablePath: String, ytdlpExecutablePath: String) throws {
+        let normalizedPythonPath = (pythonExecutablePath as NSString)
+            .expandingTildeInPath
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedYTDLPPath = (ytdlpExecutablePath as NSString)
+            .expandingTildeInPath
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard normalizedPythonPath.isEmpty == false else {
+            throw RuntimeError.invalidConfiguration("Python executable path cannot be empty.")
+        }
+        guard normalizedYTDLPPath.isEmpty == false else {
+            throw RuntimeError.invalidConfiguration("yt-dlp executable path cannot be empty.")
+        }
+
+        let runtimeConfig = YTDLPRuntimeConfig(
+            pythonExecutablePath: normalizedPythonPath,
+            ytdlpExecutablePath: normalizedYTDLPPath
+        )
+        try RuntimeValidator().validate(config: runtimeConfig)
+
+        let settings = try fetchDefaultSettings()
+        settings.pythonExecutablePath = normalizedPythonPath
+        settings.ytdlpExecutablePath = normalizedYTDLPPath
+        settings.updatedAt = .now
+        try modelContext.save()
+
+        reconfigureRuntime(with: runtimeConfig)
+    }
+
+    func resetExecutablePathsToDefault() throws {
+        try updateExecutablePaths(
+            pythonExecutablePath: AppSettings.defaultPythonExecutablePath,
+            ytdlpExecutablePath: AppSettings.defaultYTDLPExecutablePath
+        )
+    }
+
     private func resolveDownloadDirectory() throws -> URL {
-        let descriptor = FetchDescriptor<AppSettings>(predicate: #Predicate { $0.key == "default" })
-        if let settings = try modelContext.fetch(descriptor).first {
+        if let settings = try? fetchDefaultSettings() {
             return URL(fileURLWithPath: settings.downloadDirectoryPath, isDirectory: true)
         }
 
         throw AddClipboardYouTubeToCurrentListError.missingDownloadDirectory
+    }
+
+    private func fetchDefaultSettings() throws -> AppSettings {
+        let settingsKey = AppSettings.defaultKey
+        let descriptor = FetchDescriptor<AppSettings>(
+            predicate: #Predicate { $0.key == settingsKey }
+        )
+        guard let settings = try modelContext.fetch(descriptor).first else {
+            throw RuntimeError.invalidConfiguration("Default app settings are missing.")
+        }
+        return settings
+    }
+
+    private func reconfigureRuntime(with config: YTDLPRuntimeConfig) {
+        ytDLPClient = YTDLPProcessClient(runtimeConfig: config)
+        downloadManager = DownloadManager(
+            downloadRepository: downloadRepository,
+            ytDLPClient: ytDLPClient
+        )
     }
 
     private static func bootstrap(
@@ -93,7 +153,10 @@ final class AppContainer: ObservableObject {
     ) throws -> AppSettings {
         let appPathProvider = AppPathProvider()
         let defaultDirectory = try appPathProvider.defaultDownloadDirectory()
-        let settingsDescriptor = FetchDescriptor<AppSettings>(predicate: #Predicate { $0.key == "default" })
+        let settingsKey = AppSettings.defaultKey
+        let settingsDescriptor = FetchDescriptor<AppSettings>(
+            predicate: #Predicate { $0.key == settingsKey }
+        )
 
         let settings: AppSettings
         if let existing = try modelContext.fetch(settingsDescriptor).first {
